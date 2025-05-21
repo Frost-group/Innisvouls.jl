@@ -1,33 +1,11 @@
-## Multi-head attention (GPT)
-
-# GPT is built of a multi-head attention architecture.  We offer here a very small instance based on
-# Andrej Karpathy's [nanoGPT](https://github.com/karpathy/nanoGPT).  The default parameters give a
-# model much smaller than nanoGPT, tuned for fastest convergence on a very small data set
-# (Shakespeare).
-
-# This model takes as input a sequence of existing text (context) and produces as output the
-# predicted next character.  Actually, it produces the predicted next character for each initial
-# sub-sequence of the input, in effect giving an extra degree of parallelism for the purposes of
-# training.
-
-# For the attention mechanism, we use [Flux.MultiHeadAttention](https://fluxml.ai/Flux.jl/stable/reference/models/layers/#MultiHeadAttention).
-
-# Example output after one epoch:
-#    generate(model, "_", 50) = "_me, but plept fairs, And heards, verchean my word"
-#    generate(model, "_", 50) = "_ows know yought, This alce! totether him. weliest"
-#    generate(model, "The", 50) = "These prurd passtion?  CINCESSIT: He eloucy I must"
-#    generate(model, "The", 50) = "The bitherse dresic in to so shall with a his the "
-
-# Example output after 20 epochs:
-#    generate(model, "_", 50) = "_ething a calling do me diseases Of, on he's to th"
-#    generate(model, "_", 50) = "_ ragg Thou flatters all in wators the selfsarut o"
-#    generate(model, "The", 50) = "The Mirtouggake Go: For my mischance lords his sea"
-#    generate(model, "The", 50) = "The oll-gakemoremo his dead: All this man make gen"
-
-# To run this example, we need the following packages:
+## Originally from: https://raw.githubusercontent.com/FluxML/model-zoo/refs/heads/master/text/nanogpt/gpt.jl
+# Andrej Karpathy's nanoGPT implemented in Flux by Dan Stahlke (?)
 
 using JLD2
-using CUDA, cuDNN
+#using CUDA, cuDNN
+#using Metal # - fails, someting unimplemented method
+#ERROR: LoadError: MethodError: no method matching _batched_gemm!(::Type{…}, ::Char, ::Char, ::Float32, ::MtlArray{…}, ::MtlArray{…}, ::Float32, ::MtlArray{…})
+#The function `_batched_gemm!` exists, but no method is defined for this combination of argument types.
 using Flux
 using MLUtils
 using Random
@@ -37,10 +15,8 @@ using ProgressMeter
 
 device = Flux.get_device()
 
-# With these options, each epoch takes 22 seconds on an RTX 4090.
-# Loss is 1.81 after 1 epoch, and generates recognizable text.
-# Loss is 1.58 after 5 epochs.
-# Loss is 1.52 after 20 epochs.
+# With these options, each epoch takes 20 seconds on an Apple M1 (CPU)
+# 
 Base.@kwdef mutable struct Args
     n_embed::Int = 64          # Length of latent vector
     n_hidden::Int = 256        # Hidden dim for MLP layer
@@ -163,16 +139,14 @@ end
 # Load data from input file, and partition into training and testing subsets.
 function getdata(args::Args)
     isfile("input.txt") || download(
-        "https://cs.stanford.edu/people/karpathy/char-rnn/shakespeare_input.txt",
-        #"https://cs.stanford.edu/people/karpathy/char-rnn/warpeace_input.txt",
+        "https://raw.githubusercontent.com/Frost-group/Nornour/refs/heads/main/0003d-DBAASP-Database/Database_of_Antimicrobial_Activity_and_structure_of_Peptides",
         "input.txt",
     )
 
     text = String(read("input.txt"))
 
-    # For aesthetic reasons, replace newlines with strings.  This is not necessary, but makes
-    # strings print nicer.
-    text = replace(text, r"\r?\n" => " ")
+    # Replace newlines with stop chars '_' 
+    text = replace(text, r"\r?\n" => "_")
 
     ## an array of all unique characters
     alphabet = [unique(text)..., '_']
@@ -191,6 +165,7 @@ function getdata(args::Args)
     # Ys (output) should be one-hot because this is what logitcrossentropy expects.
     Xs = map(c -> Int32(findfirst(==(c), alphabet)), Xs)
     Ys = Flux.onehotbatch(Ys, alphabet)
+
     #@show Xs |> typeof # = Matrix{Int32}
     #@show Xs |> size   # = (64, 71458)
     #@show Ys |> typeof # = OneHotArrays.OneHotArray{UInt32, 2, 3, Matrix{UInt32}}
@@ -262,8 +237,8 @@ function train(; kws...)
         # represent that we are starting with zero context.
         @show generate(model, "_", 50)
         @show generate(model, "_", 50)
-        @show generate(model, "The", 50)
-        @show generate(model, "The", 50)
+        @show generate(model, "_", 50)
+        @show generate(model, "_", 50)
     end
 
     return args, model
@@ -279,10 +254,12 @@ function load_model(filename)
     return args, model
 end
 
-if true
+if true # what fresh hell is this hard-coding ? 
     args, model = train()
 else
     args, model = load_model("model-checkpoint.jld2") |> device
 end
 
-generate(model, "The", 50)
+for i in 1:80
+    @show generate(model, "_", 50)
+end
