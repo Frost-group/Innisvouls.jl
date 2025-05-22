@@ -18,13 +18,13 @@ device = Flux.get_device()
 # With these options, each epoch takes 20 seconds on an Apple M1 (CPU)
 # 
 Base.@kwdef mutable struct Args
-    n_embed::Int = 64          # Length of latent vector
-    n_hidden::Int = 256        # Hidden dim for MLP layer
+    n_embed::Int = 32          # Length of latent vector
+    n_hidden::Int = 128        # Hidden dim for MLP layer
     n_heads::Int = 4           # Number of attention heads
     qk_dim::Int = 16           # Attn query/key size, typically n_embed / n_heads
     v_dim::Int = 16            # Attn value size, typically n_embed / n_heads
     n_layers::Int = 6          # Number of attention/MLP layers
-    seqlen::Int = 64           # Context length
+    seqlen::Int = 16           # Context length
     batchsz::Int = 128         # Number of sequences in each batch
     dropout::Float32 = 0.0     # Dropout fraction during training
     testpercent::Float64 = 0.1 # Percent of corpus examples to use for testing
@@ -232,13 +232,14 @@ function train(; kws...)
 
         # Show loss per character for the testing dataset.
         @show loss(model, testX, testY)
+        @show loss(model, trainX, trainY)
+
 
         # Generate some text.  The character "_" is the stop character, and we're using it here to
         # represent that we are starting with zero context.
-        @show generate(model, "_", 50)
-        @show generate(model, "_", 50)
-        @show generate(model, "_", 50)
-        @show generate(model, "_", 50)
+        for i in 1:4
+            @show generate(model, "_", 80)
+        end
     end
 
     return args, model
@@ -260,6 +261,5 @@ else
     args, model = load_model("model-checkpoint.jld2") |> device
 end
 
-for i in 1:80
-    @show generate(model, "_", 50)
-end
+@show generate(model, "_", 4000)
+
