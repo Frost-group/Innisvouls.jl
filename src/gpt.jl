@@ -33,7 +33,6 @@ Base.@kwdef mutable struct Args
 end
 
 
-
 # One layer of the GPT model.  We will have args.n_layers of these.
 struct GPTBlock
     layernorm1::LayerNorm
@@ -134,6 +133,18 @@ function generate(model, seed, outlen)
     String(map(j -> model.alphabet[j], x))
 end
 
+### Keep it old skool : LSTM ###
+# We create the RNN with two Flux’s LSTM layers and an output layer of the size of the alphabet:
+Flux.@layer LSTM
+function LSTM(args::Args, alphabet::AbstractVector{Char})
+    N=length(alphabet)
+    return Chain(
+            LSTM(N => args.n_hidden),
+            LSTM(args.n_hidden => args.n_hidden),
+            Dense(args.n_hidden => N))
+end 
+# The size of the input and output layers is the same as the size of the alphabet. 
+
 
 
 # Load data from input file, and partition into training and testing subsets.
@@ -182,7 +193,7 @@ end
 
 
 
-function train(; kws...)
+function train(MODEL=GPT; kws...)
     args = Args(; kws...)
 
     @info "Training on $device"
@@ -201,7 +212,7 @@ function train(; kws...)
     loader = MLUtils.DataLoader((trainX, trainY), batchsize=args.batchsz, shuffle=true)
 
     # Construct the model.
-    model = GPT(args, alphabet) |> device
+    model = MODEL(args, alphabet) |> device
     @info "Number of params: $(sum(length, Flux.params(model)))"
 
     function loss(m, xs, ys)
