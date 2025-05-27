@@ -13,6 +13,8 @@ using Statistics
 using StatsBase
 using ProgressMeter
 
+using Logging
+
 device = Flux.get_device()
 
 # With these options, each epoch takes 20 seconds on an Apple M1 (CPU)
@@ -29,7 +31,7 @@ Base.@kwdef mutable struct Args
     dropout::Float32 = 0.0     # Dropout fraction during training
     testpercent::Float64 = 0.1 # Percent of corpus examples to use for testing
     lr::Float64 = 1e-2         # Learning rate
-    epochs::Int = 20           # Number of epochs
+    epochs::Int = 100           # Number of epochs
 end
 
 
@@ -194,6 +196,9 @@ end
 
 
 function train(MODEL=GPT; kws...)
+    io = open("train.dat", "w+")
+    trainlogger = SimpleLogger(io)
+
     args = Args(; kws...)
 
     @info "Training on $device"
@@ -242,9 +247,10 @@ function train(MODEL=GPT; kws...)
             args=args)
 
         # Show loss per character for the testing dataset.
-        @show loss(model, testX, testY)
-        @show loss(model, trainX, trainY)
-
+        with_logger(trainlogger) do
+            @info "TrainingCurve $(epoch) $(loss(model, testX, testY)) $(loss(model, trainX, trainY))" 
+            flush(io)
+        end
 
         # Generate some text.  The character "_" is the stop character, and we're using it here to
         # represent that we are starting with zero context.
@@ -252,6 +258,8 @@ function train(MODEL=GPT; kws...)
             @show generate(model, "_", 80)
         end
     end
+
+    close(io)
 
     return args, model
 end
