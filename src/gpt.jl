@@ -112,8 +112,7 @@ end
 
 # Infer args.seqlen from the given model.
 context_length(m::GPT) = size(m.pos_embed.weight, 2)
-
-
+context_length(m::LSTMModel) = 1  # LSTM doesn't need a fixed context length
 
 # Use the model to generate some text.
 function generate(model, seed, outlen)
@@ -123,31 +122,43 @@ function generate(model, seed, outlen)
     end
     x = map(c -> findfirst(==(c), model.alphabet)::Int64, collect(seed))
     while length(x) < outlen
-        tail = x[max(1, end-seqlen+1):end]
-        tail = reshape(tail, length(tail), 1)
+        if model isa GPT
+            tail = x[max(1, end-seqlen+1):end]
+            tail = reshape(tail, length(tail), 1)
+        else  # LSTM case
+            tail = reshape(x[end:end], 1, 1)  # LSTM only needs the last token
+        end
         y = model(tail |> device) |> cpu
         p = softmax(y[:,end,1])
         j = sample(1:length(model.alphabet), Weights(p))
-        #j = argmax(p)
-        #x = vcat(x, [j])
         push!(x, j)
     end
     String(map(j -> model.alphabet[j], x))
 end
 
 ### Keep it old skool : LSTM ###
-# We create the RNN with two Flux’s LSTM layers and an output layer of the size of the alphabet:
-Flux.@layer LSTM
-function LSTM(args::Args, alphabet::AbstractVector{Char})
-    N=length(alphabet)
-    return Chain(
-            LSTM(N => args.n_hidden),
+# We create the RNN with two Flux's LSTM layers and an output layer of the size of the alphabet:
+
+struct LSTMModel
+    alphabet::Vector{Char}
+    model::Chain
+end
+
+Flux.@layer LSTMModel
+
+function LSTMModel(args::Args, alphabet::AbstractVector{Char})
+    N = length(alphabet)
+    model = Chain(
+            Embedding(N => args.n_embed),
+            LSTM(args.n_embed => args.n_hidden),
             LSTM(args.n_hidden => args.n_hidden),
             Dense(args.n_hidden => N))
-end 
-# The size of the input and output layers is the same as the size of the alphabet. 
+    return LSTMModel(alphabet, model)
+end
 
-
+function (m::LSTMModel)(x)
+    return m.model(x)
+end
 
 # Load data from input file, and partition into training and testing subsets.
 function getdata(args::Args)
@@ -195,7 +206,7 @@ end
 
 
 
-function train(MODEL=GPT; kws...)
+function train(MODEL=LSTMModel; kws...)
     io = open("train.dat", "w+")
     trainlogger = SimpleLogger(io)
 
