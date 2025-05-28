@@ -206,7 +206,7 @@ end
 
 
 
-function train(MODEL=LSTMModel; kws...)
+function train(MODEL=GPT; kws...)
     io = open("train.dat", "w+")
     trainlogger = SimpleLogger(io)
 
@@ -251,6 +251,7 @@ function train(MODEL=LSTMModel; kws...)
         testmode!(model) # Disable dropout, for testing/inference
 
         # Save model checkpoint.
+        # FIXME: Maybe not do this for every epoch? Move into own 'save_model' function?
         jldsave("model-checkpoint.jld2",
             model_state=Flux.state(model |> cpu),
             opt_state=opt_state,
@@ -279,7 +280,7 @@ end
 function load_model(filename)
     args = JLD2.load(filename, "args")
     alphabet = JLD2.load(filename, "alphabet")
-    model = GPT(args, alphabet)
+    model = GPT(args, alphabet) # NB: currently hardcoded to GPT
     model_state = JLD2.load(filename, "model_state")
     model = Flux.loadmodel!(model, model_state);
     return args, model
