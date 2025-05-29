@@ -110,8 +110,32 @@ function (m::GPT)(tokens)
     return x
 end
 
+### Keep it old skool : LSTM ###
+# We create the RNN with two Flux LSTM layers and an output layer of the size of the alphabet:
+struct LSTMModel
+    alphabet::Vector{Char}
+    model::Chain
+end
+
+Flux.@layer LSTMModel
+
+function LSTMModel(args::Args, alphabet::AbstractVector{Char})
+    N = length(alphabet)
+    model = Chain(
+            Embedding(N => args.n_embed),
+            LSTM(args.n_embed => args.n_hidden),
+            LSTM(args.n_hidden => args.n_hidden),
+            Dense(args.n_hidden => N))
+    return LSTMModel(alphabet, model)
+end
+
+function (m::LSTMModel)(x)
+    return m.model(x)
+end
+
 # Infer args.seqlen from the given model.
 context_length(m::GPT) = size(m.pos_embed.weight, 2)
+context_length(m::LSTMModel) = 1  # LSTM doesn't need a fixed context length
 
 # Use the model to generate some text.
 function generate(model, seed, outlen)
@@ -135,31 +159,6 @@ function generate(model, seed, outlen)
     String(map(j -> model.alphabet[j], x))
 end
 
-### Keep it old skool : LSTM ###
-# We create the RNN with two Flux's LSTM layers and an output layer of the size of the alphabet:
-
-struct LSTMModel
-    alphabet::Vector{Char}
-    model::Chain
-end
-
-Flux.@layer LSTMModel
-
-context_length(m::LSTMModel) = 1  # LSTM doesn't need a fixed context length
-
-function LSTMModel(args::Args, alphabet::AbstractVector{Char})
-    N = length(alphabet)
-    model = Chain(
-            Embedding(N => args.n_embed),
-            LSTM(args.n_embed => args.n_hidden),
-            LSTM(args.n_hidden => args.n_hidden),
-            Dense(args.n_hidden => N))
-    return LSTMModel(alphabet, model)
-end
-
-function (m::LSTMModel)(x)
-    return m.model(x)
-end
 
 # Load data from input file, and partition into training and testing subsets.
 function getdata(args::Args)
