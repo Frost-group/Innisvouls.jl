@@ -138,7 +138,7 @@ context_length(m::GPT) = size(m.pos_embed.weight, 2)
 context_length(m::LSTMModel) = 1  # LSTM doesn't need a fixed context length
 
 # Use the model to generate some text.
-function generate(model, seed, outlen)
+function generate(model, seed, outlen; temperature=100.0)
     seqlen = context_length(model)
     if isempty(seed)
         seed = "_"
@@ -152,7 +152,8 @@ function generate(model, seed, outlen)
             tail = reshape(x[end:end], 1, 1)  # LSTM only needs the last token
         end
         y = model(tail |> device) |> cpu
-        p = softmax(y[:,end,1])
+        y/= temperature  # scale logits with temperature
+        p = softmax(y[:,end,1]) # softmax for logits -> normalised probabilities
         j = sample(1:length(model.alphabet), Weights(p))
         push!(x, j)
     end
@@ -266,9 +267,12 @@ function train(MODEL=GPT; kws...)
 
         # Generate some text.  The character "_" is the stop character, and we're using it here to
         # represent that we are starting with zero context.
-        for i in 1:4
-            @show generate(model, "_", 80)
-        end
+        @show generate(model, "_", 80, temperature=10.0)
+        @show generate(model, "_", 80, temperature=5.0)
+        @show generate(model, "_", 80, temperature=2.0)
+        @show generate(model, "_", 80, temperature=1.0)
+        @show generate(model, "_", 80, temperature=0.5) 
+        @show generate(model, "_", 80, temperature=0.1)
     end
 
     close(io)
