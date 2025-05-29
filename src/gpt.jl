@@ -112,7 +112,6 @@ end
 
 # Infer args.seqlen from the given model.
 context_length(m::GPT) = size(m.pos_embed.weight, 2)
-context_length(m::LSTMModel) = 1  # LSTM doesn't need a fixed context length
 
 # Use the model to generate some text.
 function generate(model, seed, outlen)
@@ -145,6 +144,8 @@ struct LSTMModel
 end
 
 Flux.@layer LSTMModel
+
+context_length(m::LSTMModel) = 1  # LSTM doesn't need a fixed context length
 
 function LSTMModel(args::Args, alphabet::AbstractVector{Char})
     N = length(alphabet)
