@@ -31,7 +31,7 @@ Base.@kwdef mutable struct Args
     dropout::Float32 = 0.0     # Dropout fraction during training
     testpercent::Float64 = 0.1 # Percent of corpus examples to use for testing
     lr::Float64 = 1e-2         # Learning rate
-    epochs::Int = 100           # Number of epochs
+    epochs::Int = 20           # Number of epochs
 end
 
 
@@ -79,10 +79,10 @@ end
 Flux.@layer GPT
 
 function GPT(args::Args, alphabet::AbstractVector{Char})
-    n_vocab = length(alphabet)
+    N = length(alphabet)
     GPT(
         alphabet,
-        Embedding(n_vocab => args.n_embed),
+        Embedding(N => args.n_embed),
         Embedding(args.seqlen => args.n_embed),
         Dropout(args.dropout),
         map(_ -> GPTBlock(
@@ -93,7 +93,7 @@ function GPT(args::Args, alphabet::AbstractVector{Char})
             n_heads  = args.n_heads,
             dropout  = args.dropout), 1:args.n_layers),
         LayerNorm(args.n_embed),
-        Dense(args.n_embed => n_vocab),
+        Dense(args.n_embed => N),
     )
 end
 
@@ -211,9 +211,11 @@ function train(MODEL=GPT; kws...)
     io = open("train.dat", "w+")
     trainlogger = SimpleLogger(io)
 
+    # Create Args struct with provided keyword arguments
     args = Args(; kws...)
 
     @info "Training on $device"
+    @info "Overriding Hyperparameters: " * join(["$k=$v" for (k,v) in pairs(kws)], ", ")
 
     # Load data from input file, and partition into training and testing subsets.
     alphabet, trainX, trainY, testX, testY = getdata(args)
@@ -277,7 +279,7 @@ function train(MODEL=GPT; kws...)
 
     close(io)
 
-    return args, model
+    return args, model, loss(model, testX, testY), loss(model, trainX, trainY)
 end
 
 # Load a model from a checkpoint (see `jldsave` above).
@@ -290,11 +292,10 @@ function load_model(filename)
     return args, model
 end
 
-if true # what fresh hell is this hard-coding ? 
+if abspath(PROGRAM_FILE) == @__FILE__ # if executed directly
     args, model = train()
-else
-    args, model = load_model("model-checkpoint.jld2") |> device
+    @show generate(model, "_", 2000)
 end
 
-@show generate(model, "_", 4000)
+# args, model = load_model("model-checkpoint.jld2") |> device
 
