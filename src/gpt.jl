@@ -1,6 +1,8 @@
 ## Originally from: https://raw.githubusercontent.com/FluxML/model-zoo/refs/heads/master/text/nanogpt/gpt.jl
 # Andrej Karpathy's nanoGPT implemented in Flux by Dan Stahlke (?)
 
+module Innisvouls
+
 using JLD2
 using CUDA, cuDNN
 #using Metal # - fails, someting unimplemented method
@@ -16,6 +18,9 @@ using ProgressMeter
 using Logging
 
 device = Flux.get_device()
+
+
+include("interface.jl")
 
 # With these options, each epoch takes 20 seconds on an Apple M1 (CPU)
 # 
@@ -292,10 +297,9 @@ function load_model(filename)
     return args, model
 end
 
-if abspath(PROGRAM_FILE) == @__FILE__ # if executed directly
-    args, model = train()
-    @show generate(model, "_", 2000)
 end
 
-# args, model = load_model("model-checkpoint.jld2") |> device
+if abspath(PROGRAM_FILE) == @__FILE__ # if executed directly
+    Innisvouls.main(ARGS)
+end
 
