@@ -2,7 +2,7 @@
 # Andrej Karpathy's nanoGPT implemented in Flux by Dan Stahlke (?)
 
 using JLD2
-#using CUDA, cuDNN
+using CUDA, cuDNN
 #using Metal # - fails, someting unimplemented method
 #ERROR: LoadError: MethodError: no method matching _batched_gemm!(::Type{…}, ::Char, ::Char, ::Float32, ::MtlArray{…}, ::MtlArray{…}, ::Float32, ::MtlArray{…})
 #The function `_batched_gemm!` exists, but no method is defined for this combination of argument types.
@@ -27,7 +27,7 @@ Base.@kwdef mutable struct Args
     v_dim::Int = 16            # Attn value size, typically n_embed / n_heads
     n_layers::Int = 6          # Number of attention/MLP layers
     seqlen::Int = 16           # Context length
-    batchsz::Int = 128         # Number of sequences in each batch
+    batchsz::Int = 8192         # Number of sequences in each batch
     dropout::Float32 = 0.0     # Dropout fraction during training
     testpercent::Float64 = 0.1 # Percent of corpus examples to use for testing
     lr::Float64 = 1e-2         # Learning rate
