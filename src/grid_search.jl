@@ -6,7 +6,7 @@ include("gpt.jl")
 # Define the hyperparameter grid
 const GRID = Dict(
     "n_embed" => [32, 64, 128],
-    "n_hidden" => [128, 256, 512],
+    "n_hidden" => [128, 256, 512], #n_embed % n_heads == 0
     "n_heads" => [4, 8],
     "n_layers" => [4, 6, 8],
     "dropout" => [0.0, 0.1, 0.2],
