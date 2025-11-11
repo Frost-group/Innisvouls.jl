@@ -50,7 +50,7 @@ function run_grid_search()
     # Create a summary file for all runs
     summary_file = joinpath(RESULTS_DIR, "summary.txt")
     open(summary_file, "w") do io
-        println(io, "# run_id n_embed n_hidden n_heads n_layers dropout lr final_train_loss final_test_loss")
+        println(io, "# run_id n_embed n_hidden n_heads n_layers dropout lr train_loss test_loss")
     end
     
     for (run_id, config) in enumerate(combinations)
@@ -62,7 +62,7 @@ function run_grid_search()
 
         # Append to summary file
         open(summary_file, "a") do io
-            println(io, "$run_id $(config["n_embed"]) $(config["n_hidden"]) $(config["n_heads"]) $(config["n_layers"]) $(config["dropout"]) $(config["lr"]) $final_train_loss $final_test_loss")
+            println(io, "$run_id $(config["n_embed"]) $(config["n_hidden"]) $(config["n_heads"]) $(config["n_layers"]) $(config["dropout"]) $(config["lr"]) $train_loss $test_loss")
         end
     end
 
