@@ -34,18 +34,27 @@ function main(args)
             help = "Number of FASTA sequences to generate"
             arg_type = Int
             default = 10
+        "--model"
+            help = "Model type: \"gpt\" or \"lstm\""
+            arg_type = String
+            default = "gpt"
     end
     parsed_args = parse_args(s)
     
+    # Choose model type based on --model flag
+    model_type = lowercase(parsed_args["model"])
+    MODEL = model_type == "lstm" ? LSTMModel : GPT
+
     if parsed_args["train"]
-        global args,model = train()
+        global args, model = train(MODEL; epochs=parsed_args["epochs"])
     else
         println("Loading model from checkpoint... (many errors may occur here!)")
         global args, model = load_model(parsed_args["load"]) |> device
     end
     
     if !isnothing(model)
-        generate_FASTA(model, parsed_args["generate"], parsed_args["length"], temperature=parsed_args["temperature"], N=parsed_args["N"])
+        generate_FASTA(model, parsed_args["textseed"], parsed_args["length"],
+                       temperature=parsed_args["temperature"], N=parsed_args["N"])
     end
 end
 

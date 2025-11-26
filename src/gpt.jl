@@ -4,7 +4,7 @@
 module Innisvouls
 
 using JLD2
-using CUDA, cuDNN
+#using CUDA, cuDNN
 #using Metal # - fails, someting unimplemented method
 #ERROR: LoadError: MethodError: no method matching _batched_gemm!(::Type{…}, ::Char, ::Char, ::Float32, ::MtlArray{…}, ::MtlArray{…}, ::Float32, ::MtlArray{…})
 #The function `_batched_gemm!` exists, but no method is defined for this combination of argument types.
