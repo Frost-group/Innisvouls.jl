@@ -268,8 +268,13 @@ function train(MODEL=GPT; kws...)
 
         # Show loss per character for the testing dataset.
         with_logger(trainlogger) do
-            @info "TrainingCurve $(epoch) $(loss(model, testX, testY)) $(loss(model, trainX, trainY))" 
+            test_loss = loss(model, testX, testY)
+            train_loss = loss(model, trainX, trainY)
+            test_perplex = exp(test_loss)
+            train_perplex = exp(train_loss)
+            @info "TrainingCurve $(epoch) test_loss= $test_loss train_loss= $train_loss test_perplex= $test_perplex train_perplex= $train_perplex"
             flush(io)
+            println("$(epoch) test_loss= $test_loss train_loss= $train_loss test_perplex= $test_perplex train_perplex= $train_perplex")
         end
 
         # Generate some text.  The character "_" is the stop character, and we're using it here to
