@@ -210,7 +210,22 @@ function getdata(args::Args)
     return (alphabet, trainX, trainY, testX, testY)
 end
 
+function wordperplexity(model, word)
+    Xs=collect('_'*word)[1:length(word)-1]
+    Ys=collect('_'*word)[2:length(word)]
+    
+    seqlen=context_length(model)
 
+    Xs = Xs[max(1, end-seqlen+1):end]
+    Xs = reshape(Xs, length(Xs), 1)
+
+    Xs=map(c -> Int32(findfirst(==(c), model.alphabet)), Xs)
+    Ys=Flux.onehotbatch(Ys,model.alphabet)
+# map(j -> model.alphabet[j], x)
+
+    s=Flux.logitcrossentropy(model(Xs), Ys) 
+    return sum(s) |> exp
+end
 
 function train(MODEL=GPT; kws...)
     io = open("train.dat", "w+")
@@ -275,6 +290,11 @@ function train(MODEL=GPT; kws...)
             @info "TrainingCurve $(epoch) test_loss= $test_loss train_loss= $train_loss test_perplex= $test_perplex train_perplex= $train_perplex"
             flush(io)
             println("$(epoch) test_loss= $test_loss train_loss= $train_loss test_perplex= $test_perplex train_perplex= $train_perplex")
+            
+            println("Word perplexities:")
+            for word in ["THE", "EHT","XYZZY", "CONSULTATION", "CONSULATONOY"]
+                println(word, ": ", wordperplexity(model,word))
+            end
         end
 
         # Generate some text.  The character "_" is the stop character, and we're using it here to
