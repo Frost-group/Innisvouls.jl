@@ -142,6 +142,14 @@ end
 context_length(m::GPT) = size(m.pos_embed.weight, 2)
 context_length(m::LSTMModel) = 1  # LSTM doesn't need a fixed context length
 
+function loss(m, xs, ys)
+    return sum(Flux.logitcrossentropy(m(xs), ys))
+end
+
+# pad / crop input to what the model wants
+prepare_input(model::GPT, x, seqlen) = reshape(x[max(1, end-seqlen+1):end], :, 1)
+prepare_input(model::LSTMModel, x, seqlen) = reshape(x[end:end], 1, 1)
+
 # Use the model to generate some text.
 function generate(model, seed, outlen; temperature=100.0)
     seqlen = context_length(model)
@@ -150,12 +158,7 @@ function generate(model, seed, outlen; temperature=100.0)
     end
     x = map(c -> findfirst(==(c), model.alphabet)::Int64, collect(seed))
     while length(x) < outlen
-        if model isa GPT
-            tail = x[max(1, end-seqlen+1):end]
-            tail = reshape(tail, length(tail), 1)
-        else  # LSTM case
-            tail = reshape(x[end:end], 1, 1)  # LSTM only needs the last token
-        end
+        tail = prepare_input(model, x, seqlen)
         y = model(tail |> device) |> cpu
         y/= temperature  # scale logits with temperature
         p = softmax(y[:,end,1]) # softmax for logits -> normalised probabilities
@@ -180,7 +183,6 @@ function getdata(args::Args)
 
     ## an array of all unique characters
     alphabet = [unique(text)..., '_']
-    stop = alphabet[end]
 
     B = (length(text)-1) ÷ args.seqlen
     # We must collect() before indexing, because String indexing does strange things with multi-byte
@@ -189,7 +191,7 @@ function getdata(args::Args)
     Ys = reshape(collect(text)[2:B*args.seqlen+1], args.seqlen, B)
 
     # Input string starts with stop character '_', representing zero context.
-    Xs[1,:] .= stop
+    Xs[1,:] .= '_'
 
     # Xs (input) should consist of indices into `alphabet` because this is what Embedding expects.
     # Ys (output) should be one-hot because this is what logitcrossentropy expects.
@@ -211,20 +213,16 @@ function getdata(args::Args)
 end
 
 function wordperplexity(model, word)
-    Xs=collect('_'*word)[1:length(word)-1]
-    Ys=collect('_'*word)[2:length(word)]
+    input = '_' * word
+    Xs = collect(input)[1:end-1]
+    Ys = collect(input)[2:end]
+      
+    Xs = prepare_input(model, Xs, context_length(model))
+ 
+    Xs = map(c -> Int32(findfirst(==(c), model.alphabet)), Xs)   
+    Ys = Flux.onehotbatch(Ys, model.alphabet)
     
-    seqlen=context_length(model)
-
-    Xs = Xs[max(1, end-seqlen+1):end]
-    Xs = reshape(Xs, length(Xs), 1)
-
-    Xs=map(c -> Int32(findfirst(==(c), model.alphabet)), Xs)
-    Ys=Flux.onehotbatch(Ys,model.alphabet)
-# map(j -> model.alphabet[j], x)
-
-    s=Flux.logitcrossentropy(model(Xs), Ys) 
-    return sum(s) |> exp
+    return loss(model, Xs, Ys) |> exp
 end
 
 function train(MODEL=GPT; kws...)
@@ -253,10 +251,6 @@ function train(MODEL=GPT; kws...)
     # Construct the model.
     model = MODEL(args, alphabet) |> device
     @info "Number of params: $(sum(length, Flux.params(model)))"
-
-    function loss(m, xs, ys)
-        return sum(Flux.logitcrossentropy(m(xs), ys))
-    end
 
     opt_state = Flux.setup(Adam(args.lr), model)
     #opt_state = JLD2.load("model-checkpoint.jld2", "opt_state")

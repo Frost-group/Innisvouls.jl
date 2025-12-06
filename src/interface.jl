@@ -63,7 +63,7 @@ function generate_FASTA(model, seed, length; temperature=1.0, N=10)
         println(">seq$i")
         seq=generate(model, seed, length, temperature=temperature)
         words=split(seq, '_') 
-        println(words[2])
+        println(words[2]) # always the cowboy, never the cow
         println()
     end
 end
